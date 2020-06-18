@@ -1,6 +1,6 @@
 {
   "name": "liwenzhi/mongodb",
-  "description": "mongodb 操作类",
+  "description": "极简的MongoDB操作类支持增删查改,聚合函数等,没有多余的任何引用",
   "authors": [
     {
       "name": "liwenzhi"
@@ -8,7 +8,7 @@
   ],
   "license": "Apache-2.0",
   "require": {
-    "php": ">=5.4.*"
+    "php": ">=5.4"
   },
   "autoload": {
     "psr-4": {
