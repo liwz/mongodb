@@ -4,7 +4,7 @@
 $config = [
     'hostname' => '127.0.0.1',
     'port'     => 27017,
-    'database' => 'msb',
+    'database' => 'dbname',
     'username' => '',
     'password' => '',
 ];
@@ -37,7 +37,7 @@ $info = $mongo->collection('user')->find('5ee9d4d78eaaa80e025808a3');
 var_dump($info);
 
 echo "查询多条:\n";
-$list = $mongo->collection('user')->where([])->setSkip(0)->setLimit(10)->select();
+$list = $mongo->collection('user')->sort()->where([])->setSkip(0)->setLimit(10)->select();
 var_dump($list);
 
 

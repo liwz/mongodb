@@ -362,7 +362,7 @@ class Mongodb
      */
     public function max($field = '')
     {
-        $this->setSort([$field => -1]);
+        $this->sort([$field => -1]);
         $info = $this->find();
         if (empty($info)) {
             return 0;
@@ -379,7 +379,7 @@ class Mongodb
      */
     public function min($field = '')
     {
-        $this->setSort([$field => 1]);
+        $this->sort([$field => 1]);
         $info = $this->find();
         if (empty($info)) {
             return 0;
@@ -423,13 +423,13 @@ class Mongodb
     }
 
 
-    public function setSkip($skip = 0)
+    public function skip($skip = 0)
     {
         $this->skip = $skip;
         return $this;
     }
 
-    public function setLimit($limit = 10)
+    public function limit($limit = 10)
     {
         $this->limit = $limit;
         return $this;
@@ -466,7 +466,7 @@ class Mongodb
         return [];
     }
 
-    public function setSort($fields = [])
+    public function sort($fields = [])
     {
 
         foreach ($fields as $col => $val) {
