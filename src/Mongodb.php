@@ -1,7 +1,7 @@
 <?php
 
 
-namespace liwz\Mongodb;
+namespace liwenzhi\Mongodb;
 
 use MongoDB\Driver\Query;
 use MongoDB\Driver\WriteResult;

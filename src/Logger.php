@@ -1,6 +1,6 @@
 <?php
 
-namespace liwz\Mongodb;
+namespace liwenzhi\Mongodb;
 
 
 class Logger
