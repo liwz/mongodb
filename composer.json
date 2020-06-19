@@ -1,5 +1,5 @@
 {
-  "name": "liwenzhi/mongodb",
+  "name": "msb/mongodb",
   "description": "极简的MongoDB操作类支持增删查改,聚合函数等,没有多余的任何引用",
   "authors": [
     {
@@ -12,7 +12,7 @@
   },
   "autoload": {
     "psr-4": {
-      "liwenzhi\\Mongodb\\": "src/"
+      "msb\\Mongodb\\": "src/"
     }
   }
 }

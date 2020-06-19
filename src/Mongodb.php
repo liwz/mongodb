@@ -1,13 +1,11 @@
 <?php
 
 
-namespace liwenzhi\Mongodb;
+namespace msb\Mongo;
 
 use MongoDB\Driver\Query;
-use MongoDB\Driver\WriteResult;
 use MongoDB\Driver\BulkWrite;
 use MongoDB\Driver\WriteConcern;
-use Think\Exception;
 
 class Mongodb
 {
@@ -270,22 +268,16 @@ class Mongodb
      */
     public function count()
     {
-        //当需要分页显示，排序，和忽略字段
-        $options      = [
-            'skip'       => $this->skip,
-            'limit'      => $this->limit,
-            'sort'       => $this->sorts,
-            'projection' => $this->selects,
-        ];
-        $query        = new Query($this->wheres, $options);
-        $commands     = new \MongoDB\Driver\Command(
-            [
-                "count" => $this->collection,
-                "query" => $query
-            ]
-        );
-        $this->result = $this->command($this->database, $commands);
-        $response     = $this->result->toArray()[0];
+        $doc          = [];
+        $doc['count'] = $this->collection;
+        if ($this->wheres) {
+            $doc['query'] = $this->wheres;
+        }
+        $db           = $this->database;
+        $commands     = new \MongoDB\Driver\Command($doc);
+        $cursor       = $this->command($db, $commands);
+        $this->result = $cursor;
+        $response     = $cursor->toArray()[0];
         return $response->n;
     }
 
@@ -489,12 +481,31 @@ class Mongodb
         return $this;
     }
 
+    /**
+     * @param $field
+     * @param array $values
+     * @return $this
+     */
     public function whereIn($field, array $values)
     {
-        $this->wheres[$field]['$in'] = $values;
+        if ($field == $this->pk) {
+            $arrIds = [];
+            foreach ($values as $v) {
+                $arrIds[] = new \MongoDB\BSON\ObjectID($v);
+            }
+            $this->wheres[$field]['$in'] = $arrIds;
+        } else {
+            $this->wheres[$field]['$in'] = $values;
+        }
         return $this;
     }
 
+    /**
+     * 满足所有条件
+     * @param $field
+     * @param array $values
+     * @return $this
+     */
     public function whereInAll($field, array $values)
     {
         $this->wheres[$field]['$all'] = $values;
@@ -612,16 +623,54 @@ class Mongodb
 
 
     /**
-     * @TODO 未完成
-     * @param $field
-     * @param $value
-     * @return $this
+     * @param $groupByField 分组的字段
+     * @param $field 统计的字段 count(1)|sum(age)
+     * @param string $type sum|avg|min|max|count
+     * @param array $having
+     * @return mixed
      */
-    public function whereLike($field, $value)
+    public function group($groupByField, $field, $type = '', $having = [])
     {
-        $this->where([$field => "/$value/"]);
-        return $this;
+        $pipe = [];
+        //where条件组装
+        foreach ($this->wheres as $field => $v) {
+            $pipe[] ['$match'] = [$field => $v];
+        }
+        $type = trim($type, '$');
+        if ($type == 'count') {
+            $ctype = '$sum';
+            $field = 1;
+        } else {
+            $ctype = '$' . $type;
+            $field = '$' . $field;
+        }
+        $pipe[] ['$group'] = ['_id' => '$' . $groupByField, $type => [$ctype => $field]];
+        if ($having) {
+            $pipe = array_merge($pipe, $having);
+        }
+
+        return $this->aggregate($pipe);
     }
 
+
+    public function aggregate($pipeline)
+    {
+        $db = $this->database;
+
+        $commands = new \MongoDB\Driver\Command(
+            [
+                'aggregate' => $this->collection,
+                'pipeline'  => $pipeline,
+                'cursor'    => new \stdClass(),
+            ]
+        );
+        $cursor   = $this->command($db, $commands);
+        $returns  = [];
+        foreach ($cursor as $document) {
+            $bson      = \MongoDB\BSON\fromPHP($document);
+            $returns[] = json_decode(\MongoDB\BSON\toJSON($bson), true);
+        }
+        return $returns;
+    }
 
 }

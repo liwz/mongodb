@@ -1,5 +1,7 @@
 <?php
 
+require_once "src/Logger.php";
+require_once "src/Mongodb.php";
 
 $config = [
     'hostname' => '127.0.0.1',
@@ -8,15 +10,44 @@ $config = [
     'username' => '',
     'password' => '',
 ];
-$mongo  = new \Mongo\Mongodb($config);
+$mongo  = new \msb\Mongo\Mongodb($config);
+
+//
+//$list = $mongo->collection('user')->select();
+//for ($i = 0; $i < 200; $i++) {
+//    $doc = [
+//        'user_name' => '李文志' . $i,
+//        'sex'       => rand(1, 3),
+//        'age'       => rand(10, 40),
+//        'address'   => '呵呵哒' . $i,
+//    ];
+//    var_dump($mongo->collection('user')->insert($doc));
+//}
+//
+//return;
+
+$list = $mongo->collection('user')
+//    ->where(['_id' => '5eeb432ce5b52119a13e65f5'])
+//    ->whereIn('_id', [
+//        '5eeb432ce5b52119a13e65f4',
+//        '5eeb432ce5b52119a13e65f3',
+//        '5eeb432ce5b52119a13e65f5'
+//    ])->whereGt('sex', 1)
+//    ->where(['sex' => 2])
+//    ->whereGte('age', 30)
+    ->whereBetween('age', 1, 20)
+//    ->where([])
+//    ->skip(0)->limit(2)
+    ->count();
+
+
+var_dump($list);
+
+
+return;
+
+
 echo "插入一条记录\n";
-$doc = [
-    'user_name' => '李文志',
-    'sex'       => 1,
-    'age'       => 29,
-    'address'   => '呵呵哒'
-];
-var_dump($mongo->collection('user')->insert($doc));
 
 
 echo "===插入多条记录\n";
@@ -24,7 +55,7 @@ $dataset = [];
 for ($i = 0; $i < 3; $i++) {
     $dataset [] = [
         'user_name' => '李文志' . $i,
-        'sex'       => 1,
+        'sex'       => rand(1, 3),
         'age'       => rand(20, 90),
         'address'   => '呵呵哒' . $i
     ];
@@ -37,7 +68,7 @@ $info = $mongo->collection('user')->find('5ee9d4d78eaaa80e025808a3');
 var_dump($info);
 
 echo "查询多条:\n";
-$list = $mongo->collection('user')->sort()->where([])->setSkip(0)->setLimit(10)->select();
+$list = $mongo->collection('user')->sort()->where([])->skip(0)->limit(10)->select();
 var_dump($list);
 
 
@@ -78,12 +109,19 @@ $distinct = $mongo->collection('jishu')->where([])->min('view');
 var_dump($distinct);
 
 
-echo "like 查询\n";
+echo "group 查询\n";
 
 
-$list = $mongo->collection('user')->whereLike('address', '呵')->select();
+$list = $mongo->collection('user')
+    ->where(['user_name' => '李文志'])
+    ->whereGt('age', 13)
+    ->whereGt('age', 13)
+    ->group('sex', 'age', 'count');
+
 
 var_dump($list);
+
+
 
 
 
