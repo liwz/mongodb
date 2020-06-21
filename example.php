@@ -1,6 +1,10 @@
 <?php
 
 
+require 'src/Logger.php';
+require 'src/Mongodb.php';
+
+
 $config = [
     'hostname' => '127.0.0.1',
     'port'     => 27017,
@@ -8,7 +12,11 @@ $config = [
     'username' => '',
     'password' => '',
 ];
-$mongo  = new \Mongo\Mongodb($config);
+
+
+$mongo = liwenzhi\Mongodb\Mongodb::getInstance($config);
+
+
 echo "插入一条记录\n";
 $doc = [
     'user_name' => '李文志',
@@ -18,6 +26,8 @@ $doc = [
 ];
 var_dump($mongo->collection('user')->insert($doc));
 
+
+return;
 
 echo "===插入多条记录\n";
 $dataset = [];

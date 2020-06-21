@@ -4,10 +4,8 @@
 namespace liwenzhi\Mongodb;
 
 use MongoDB\Driver\Query;
-use MongoDB\Driver\WriteResult;
 use MongoDB\Driver\BulkWrite;
 use MongoDB\Driver\WriteConcern;
-use Think\Exception;
 
 class Mongodb
 {
@@ -30,9 +28,8 @@ class Mongodb
     private $skip = 0;
     private $limit = 1000;
 
-    private $pk = '_id';
-
-    private $result;
+    protected $pk = '_id';
+    protected $isBsonObjectId = true;//是否为自动创建ID
 
 
     /**
@@ -44,12 +41,34 @@ class Mongodb
     /*  @var $_manager \MongoDB\Driver\Manager */
     private $_manager;
 
-    public function __construct(array $config)
+    private function __construct($config)
     {
+
+
         $this->config = $config;
         $this->preConfig();
         $this->connect();
         $this->logger = new Logger();
+    }
+
+    private static $instance = [];
+
+    /**
+     * @param $config array
+     * @return $this
+     */
+    public static function getInstance($config)
+    {
+        if (is_array($config)) {
+            $key = md5(serialize($config));
+        } else {
+            $key = $config;
+        }
+        if (!isset(self::$instance[$key]) || self::$instance[$key] == null) {
+            self::$instance[$key] = new self($config);
+
+        }
+        return self::$instance[$key];
     }
 
 
@@ -84,7 +103,7 @@ class Mongodb
      * 初始化成员
      * @return $this
      */
-    public function initialize()
+    private function initialize()
     {
         $this->wheres  = [];
         $this->limit   = 1000;
@@ -95,12 +114,15 @@ class Mongodb
     }
 
     /**
+     *
      * @param $collection
+     * @param bool $isBsonObjectId
      * @return $this
      */
-    public function collection($collection)
+    public function collection($collection, $isBsonObjectId = true)
     {
-        $this->collection = $collection;
+        $this->collection     = $collection;
+        $this->isBsonObjectId = $isBsonObjectId;
         //初始化
         return $this->initialize();
     }
@@ -131,9 +153,9 @@ class Mongodb
             $writeConcern = new \MongoDB\Driver\WriteConcern($option['w'], $option['wtimeout']);
             $bulkWrite    = new \MongoDB\Driver\BulkWrite();
             $bulkWrite->insert($doc);
-            $dbc          = $this->database . '.' . $this->collection;
-            $this->result = $this->_manager->executeBulkWrite($dbc, $bulkWrite, $writeConcern);
-            return $this->result->getInsertedCount();
+            $dbc    = $this->database . '.' . $this->collection;
+            $result = $this->_manager->executeBulkWrite($dbc, $bulkWrite, $writeConcern);
+            return $result->getInsertedCount();
         } catch (\Exception $ex) {
             $this->logger->error($ex->getTrace());
         }
@@ -157,9 +179,9 @@ class Mongodb
             foreach ($dataset as $doc) {
                 $bulkWrite->insert($doc);
             }
-            $dbc          = $this->database . '.' . $this->collection;
-            $this->result = $this->_manager->executeBulkWrite($dbc, $bulkWrite, $writeConcern);
-            return $this->result->getInsertedCount();
+            $dbc    = $this->database . '.' . $this->collection;
+            $result = $this->_manager->executeBulkWrite($dbc, $bulkWrite, $writeConcern);
+            return $result->getInsertedCount();
         } catch (\Exception $ex) {
             $this->logger->error($ex->getTrace());
         }
@@ -187,9 +209,9 @@ class Mongodb
             $bulkWrite->delete($filter, [
                 'limit' => $limit,
             ]);
-            $dbc          = $this->database . '.' . $this->collection;
-            $this->result = $this->_manager->executeBulkWrite($dbc, $bulkWrite, $writeConcern);
-            return $this->result->getDeletedCount();
+            $dbc    = $this->database . '.' . $this->collection;
+            $result = $this->_manager->executeBulkWrite($dbc, $bulkWrite, $writeConcern);
+            return $result->getDeletedCount();
 
         } catch (\Exception $ex) {
             $this->logger->error($ex->getTrace());
@@ -219,9 +241,9 @@ class Mongodb
                 throw new \Exception('filter is error!');
             }
             $bulkWrite->update($filter, $data, $updateOptions);
-            $dbc          = $this->database . '.' . $this->collection;
-            $this->result = $this->_manager->executeBulkWrite($dbc, $bulkWrite, $writeConcern);
-            return $this->result->getModifiedCount();
+            $dbc    = $this->database . '.' . $this->collection;
+            $result = $this->_manager->executeBulkWrite($dbc, $bulkWrite, $writeConcern);
+            return $result->getModifiedCount();
         } catch (\Exception $ex) {
             $this->logger->error($ex->getTrace());
         }
@@ -240,17 +262,16 @@ class Mongodb
             if ($_id != null) {
                 $this->where([$this->pk => $_id]);
             }
-            $option       = [
+            $option  = [
                 'projection' => $this->selects,
                 "sort"       => $this->sorts,
                 "skip"       => 0,
                 "limit"      => 1,
             ];
-            $query        = new \MongoDB\Driver\Query($this->wheres, $option);
-            $dbc          = $this->database . '.' . $this->collection;
-            $cursor       = $this->_manager->executeQuery($dbc, $query);
-            $this->result = $cursor;
-            $returns      = [];
+            $query   = new \MongoDB\Driver\Query($this->wheres, $option);
+            $dbc     = $this->database . '.' . $this->collection;
+            $cursor  = $this->_manager->executeQuery($dbc, $query);
+            $returns = [];
             foreach ($cursor as $document) {
                 $bson    = \MongoDB\BSON\fromPHP($document);
                 $returns = json_decode(\MongoDB\BSON\toJSON($bson), true);
@@ -270,22 +291,15 @@ class Mongodb
      */
     public function count()
     {
-        //当需要分页显示，排序，和忽略字段
-        $options      = [
-            'skip'       => $this->skip,
-            'limit'      => $this->limit,
-            'sort'       => $this->sorts,
-            'projection' => $this->selects,
-        ];
-        $query        = new Query($this->wheres, $options);
-        $commands     = new \MongoDB\Driver\Command(
-            [
-                "count" => $this->collection,
-                "query" => $query
-            ]
-        );
-        $this->result = $this->command($this->database, $commands);
-        $response     = $this->result->toArray()[0];
+        $doc          = [];
+        $doc['count'] = $this->collection;
+        if ($this->wheres) {
+            $doc['query'] = $this->wheres;
+        }
+        $db       = $this->database;
+        $commands = new \MongoDB\Driver\Command($doc);
+        $cursor   = $this->command($db, $commands);
+        $response = $cursor->toArray()[0];
         return $response->n;
     }
 
@@ -335,22 +349,22 @@ class Mongodb
     public function distinct($key)
     {
         //当需要分页显示，排序，和忽略字段
-        $options      = [
+        $options  = [
             'skip'       => $this->skip,
             'limit'      => $this->limit,
             'sort'       => $this->sorts,
             'projection' => $this->selects,
         ];
-        $query        = new Query($this->wheres, $options);
-        $commands     = new \MongoDB\Driver\Command(
+        $query    = new Query($this->wheres, $options);
+        $commands = new \MongoDB\Driver\Command(
             [
                 'distinct' => $this->collection,
                 'key'      => $key,
                 'query'    => $query
             ]
         );
-        $this->result = $this->command($this->database, $commands);
-        return current($this->result->toArray())->values;
+        $result   = $this->command($this->database, $commands);
+        return current($result->toArray())->values;
     }
 
 
@@ -444,17 +458,17 @@ class Mongodb
     {
         try {
 
-            $option       = [
+            $option  = [
                 'projection' => $this->selects,
                 "sort"       => $this->sorts,
                 "skip"       => $this->skip,
                 "limit"      => $this->limit,
             ];
-            $query        = new \MongoDB\Driver\Query($this->wheres, $option);
-            $dbc          = $this->database . '.' . $this->collection;
-            $this->result = $this->_manager->executeQuery($dbc, $query);
-            $returns      = [];
-            foreach ($this->result as $document) {
+            $query   = new \MongoDB\Driver\Query($this->wheres, $option);
+            $dbc     = $this->database . '.' . $this->collection;
+            $result  = $this->_manager->executeQuery($dbc, $query);
+            $returns = [];
+            foreach ($result as $document) {
                 $bson       = \MongoDB\BSON\fromPHP($document);
                 $returns [] = json_decode(\MongoDB\BSON\toJSON($bson), true);
             }
@@ -481,7 +495,7 @@ class Mongodb
 
     public function where($where)
     {
-        if (isset($where[$this->pk])) {
+        if (isset($where[$this->pk]) && $this->isBsonObjectId && !is_object($where[$this->pk])) {
             $where[$this->pk] = new \MongoDB\BSON\ObjectID($where[$this->pk]);
         }
 
@@ -489,12 +503,31 @@ class Mongodb
         return $this;
     }
 
+    /**
+     * @param $field
+     * @param array $values
+     * @return $this
+     */
     public function whereIn($field, array $values)
     {
-        $this->wheres[$field]['$in'] = $values;
+        if ($field == $this->pk) {
+            $arrIds = [];
+            foreach ($values as $v) {
+                $arrIds[] = $this->isBsonObjectId && !is_object($v) ? new \MongoDB\BSON\ObjectID($v) : $v;
+            }
+            $this->wheres[$field]['$in'] = $arrIds;
+        } else {
+            $this->wheres[$field]['$in'] = $values;
+        }
         return $this;
     }
 
+    /**
+     * 满足所有条件
+     * @param $field
+     * @param array $values
+     * @return $this
+     */
     public function whereInAll($field, array $values)
     {
         $this->wheres[$field]['$all'] = $values;
@@ -610,18 +643,105 @@ class Mongodb
         return $this;
     }
 
-
     /**
-     * @TODO 未完成
+     * 是否存在
      * @param $field
-     * @param $value
      * @return $this
      */
-    public function whereLike($field, $value)
+    public function whereExists($field)
     {
-        $this->where([$field => "/$value/"]);
+        $this->wheres[$field]['$exists'] = true;
         return $this;
     }
 
+
+    /**
+     * 删除collection
+     * @return mixed
+     */
+    public function dropCollection()
+    {
+        $cmd      = [
+            'drop' => $this->collection,
+        ];
+        $db       = $this->database;
+        $commands = new \MongoDB\Driver\Command($cmd);
+        $cursor   = $this->command($db, $commands);
+
+        if (empty($cursor)) {
+            return null;
+        }
+        return current($cursor->toArray())['nIndexesWas'];
+    }
+
+    /**
+     * @param $groupByField 分组的字段
+     * @param $field 统计的字段 count(1)|sum(age)
+     * @param string $type sum|avg|min|max|count
+     * @param array $having
+     * @return mixed
+     */
+    public function group($groupByField, $field, $type = '', $having = [])
+    {
+        $pipe = [];
+        //where条件组装
+        foreach ($this->wheres as $field => $v) {
+            $pipe[] ['$match'] = [$field => $v];
+        }
+        $type = trim($type, '$');
+        if ($type == 'count') {
+            $ctype = '$sum';
+            $field = 1;
+        } else {
+            $ctype = '$' . $type;
+            $field = '$' . $field;
+        }
+        $pipe[] ['$group'] = ['_id' => '$' . $groupByField, $type => [$ctype => $field]];
+        if ($having) {
+            $pipe = array_merge($pipe, $having);
+        }
+
+        return $this->aggregate($pipe);
+    }
+
+
+    /**
+     * 返回字段过滤
+     * @param $arr ['name'=>true,'_id'=>'0']
+     * @return $this
+     */
+    public function fields($arr)
+    {
+        foreach ($arr as $s => $v) {
+            $this->selects[$s] = $v ? 1 : 0;
+        }
+        return $this;
+    }
+
+
+    public function aggregate($pipeline)
+    {
+        $db = $this->database;
+
+        $commands = new \MongoDB\Driver\Command(
+            [
+                'aggregate' => $this->collection,
+                'pipeline'  => $pipeline,
+                'cursor'    => new \stdClass(),
+            ]
+        );
+        $cursor   = $this->command($db, $commands);
+        $returns  = [];
+        foreach ($cursor as $document) {
+            $bson      = \MongoDB\BSON\fromPHP($document);
+            $returns[] = json_decode(\MongoDB\BSON\toJSON($bson), true);
+        }
+        return $returns;
+    }
+
+
+    private function __clone()
+    {
+    }
 
 }
