@@ -14,7 +14,7 @@ $config = [
     'username' => '',
     'password' => '',
 ];
-$mongo = new Mongodb($config);
+$mongo = Mongodb::getInstance($config);
 //方式1
 $mongo->collection('tablename')->where(['_id'=>'xxx'])->find();
 //方式2
@@ -26,7 +26,7 @@ $mongo->collection('tablename')->find('xxx');
 ##查询多条
 
 ```php
-$mongo = new Mongodb($config);
+$mongo = Mongodb::getInstance($config);
 $mongo->collection('tablename')->where(['city'=>'xxx'])->sort(['age'=>1])->skip(0)->limit(10)->select();
 
 ```
@@ -40,7 +40,7 @@ $doc = [
 	'name'=>'liwz',
 	'age'=>12
 ];
-$mongo = new Mongodb($config);
+$mongo = Mongodb::getInstance($config);
 $mongo->collection('tablename')->insert($doc);
 ```
 
@@ -57,21 +57,21 @@ $docs =[
 		'age'=>12
 	]
 ];
-$mongo = new Mongodb($config);
+$mongo = Mongodb::getInstance($config);
 $mongo->collection('tablename')->insertMulti($docs);
 ```
 
 ##删除数据
 
 ```php
-$mongo = new Mongodb($config);
+$mongo = Mongodb::getInstance($config);
 $mongo->collection('tablename')->where(['age'=>12])->delete();
 ```
 
 ##修改数据
 
 ```php
-$mongo = new Mongodb($config);
+$mongo = Mongodb::getInstance($config);
 $mongo->collection('tablename')->where(['_id'=>12])->update(['coin'=>9999]);
 ```
 
@@ -98,5 +98,6 @@ $mongo->whereLte()
 $mongo->whereGte()
 $mongo->whereBetween()
 $mongo->whereNotEqual()
+$mongo->group()
 ```
 
